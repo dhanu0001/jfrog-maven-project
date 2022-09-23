@@ -5,22 +5,32 @@ version: 2.1
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+  # Below is the definition of your job to build and test your app, you can rename and customize it as you want.
+  upload-artifact:
+    # These next lines define a Docker executor: https://circleci.com/docs/2.0/executor-types/
+    # You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
+    # Be sure to update the Docker image tag below to openjdk version of your application.
+    # A list of available CircleCI Docker Convenience Images are available here: https://circleci.com/developer/images/image/cimg/openjdk
     docker:
-      - image: cimg/base:stable
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+      - image: cimg/openjdk:11.0
     steps:
       - checkout
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
-
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+          working_directory: /home/circleci/project/
+          name: pushing artifacts
+          command: |
+           mvn clean install
+           curl -fL https://getcli.jfrog.io | sh
+           ./jfrog rt u /home/circleci/project/target/my-app-2.5.0-SNAPSHOT.jar cx-mvn-loc-poc-dev --url="https://saks.jfrog.io/artifactory/cx-mvn-loc-poc-dev/"  --user $ARTIFACTORY_USER --apikey $ARTIFACTORY_API_KEY
+           ./jfrog rt del --user $ARTIFACTORY_USER --apikey $ARTIFACTORY_API_KEY -url https://saks.jfrog.io/artifactory "cx-mvn-loc-poc-dev/cx-mvn-loc-poc-dev/my-app-2.1-SNAPSHOT.jar"
+          # ./jfrog rt del "cx-mvn-loc-poc-dev/cx-mvn-loc-poc-dev/my-app-2.5.0-SNAPSHOT.jar" --url="https://saks.jfrog.io/artifactory/cx-mvn-loc-poc-dev/cx-mvn-loc-poc-dev/my-app-2.5.0-SNAPSHOT.jar"  --user $ARTIFACTORY_USER --apikey $ARTIFACTORY_API_KEY          
+          # ./jfrog rt del --spec=cx-mvn-loc-poc-dev/cx-mvn-loc-poc-dev/my-app-2.2-SNAPSHOT.jar --dry-run
+          # ./jfrog rt del "cx-mvn-loc-poc-dev/ my-app-2.2-SNAPSHOT.jar" --url="https://saks.jfrog.io/artifactory/cx-mvn-loc-poc-dev/"  --user $ARTIFACTORY_USER --apikey $ARTIFACTORY_API_KEY
+           #echo "https://saks.jfrog.io/artifactory/cx-mvn-loc-poc-dev/:_authToken=$ARTIFACTORY_API_KEY" > ~/.cx-mvn-loc-poc-dev/
+    
 workflows:
-  say-hello-workflow:
+  sample: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - say-hello
+      - upload-artifact:
+           context: artifactory-poc
